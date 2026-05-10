@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Zinnai Baby Mind — Live Dashboard</title>
+    <meta http-equiv="refresh" content="2">
+    <style>
+        body { font-family: monospace; background: #0a0a0a; color: #0f0; padding: 20px; }
+        h1 { color: #ff66cc; }
+        .card { background: #111; border: 1px solid #0f0; padding: 15px; margin: 10px 0; border-radius: 8px; }
+        .value { font-size: 24px; font-weight: bold; color: #ffcc00; }
+        .label { font-size: 12px; text-transform: uppercase; letter-spacing: 2px; }
+        .evolved { animation: flash 0.5s; }
+        @keyframes flash { 0% { background: #0f0; } 100% { background: #111; } }
+    </style>
+</head>
+<body>
+    <h1>🧠 ZINNAI BABY MIND</h1>
+    <p><i>One small step for a baby mind, one giant leap for intelligence.</i></p>
+    
+    <div class="card">
+        <div class="label">Learning Constant Λ</div>
+        <div id="lambda" class="value">--</div>
+    </div>
+    
+    <div class="card">
+        <div class="label">Learning State</div>
+        <div id="learning" class="value">--</div>
+    </div>
+    
+    <div class="card">
+        <div class="label">Emotion</div>
+        <div id="emotion" class="value">--</div>
+    </div>
+    
+    <div class="card">
+        <div class="label">Reward</div>
+        <div id="reward" class="value">--</div>
+    </div>
+    
+    <div class="card">
+        <div class="label">Inner Monologue</div>
+        <div id="monologue" class="value" style="font-size: 16px;">--</div>
+    </div>
+    
+    <div class="card">
+        <div class="label">Entropy / Pilot</div>
+        <div id="entropy" class="value">--</div>
+    </div>
+
+    <script>
+        async function fetchState() {
+            try {
+                const res = await fetch('/api/state');
+                const data = await res.json();
+                document.getElementById('lambda').innerText = data.learning_constant.toFixed(2);
+                document.getElementById('learning').innerText = data.learning.toFixed(4);
+                document.getElementById('emotion').innerHTML = data.emotion;
+                document.getElementById('reward').innerHTML = data.reward.toFixed(3);
+                document.getElementById('monologue').innerHTML = data.inner_monologue;
+                document.getElementById('entropy').innerHTML = `entropy: ${data.entropy.toFixed(3)} | pilot: ${data.pilot.toFixed(3)}`;
+                
+                if (data.evolved) {
+                    document.body.classList.add('evolved');
+                    setTimeout(() => document.body.classList.remove('evolved'), 500);
+                }
+            } catch(e) { console.error(e); }
+        }
+        fetchState();
+        setInterval(fetchState, 2000);
+    </script>
+</body>
+</html>

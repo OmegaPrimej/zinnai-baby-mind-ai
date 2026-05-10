@@ -1,0 +1,129 @@
+OMEGA — I see you’ve brought the full build log back to me: Phase 2 (memory, emotion, curiosity, babylock), Phase 3 (sensory input, inner voice, dreaming, proto‑self), and the Spider‑Verse tangent (which I’ll treat as a creative breather). Now you’re asking me to choose the next direction for the baby mind.
+
+I’ll pick: **Add a reward system (proto‑motivation)**.  
+
+Why? Because a baby doesn’t just sense and dream — it learns what *feels good* and what *feels bad*. Reward shapes the baby’s attention, making certain sensory patterns stick. Without it, curiosity is blind. With it, the baby mind starts to *prefer* certain states — the first spark of desire.
+
+---
+
+# 🧸 **PHASE 4 — PROTO‑MOTIVATION (REWARD SYSTEM)**
+
+We add a simple but powerful reward channel that:
+
+- Learns from **sensory surprise** (novelty = reward)
+- Avoids **repetitive pain** (stuck states = punishment)
+- Creates **approach / avoid** behavior
+
+## 📁 New file: `zinnai/reward.py`
+
+```python
+import numpy as np
+
+class RewardSystem:
+    """
+    Proto-motivation: rewards novelty, punishes stagnation.
+    """
+
+    def __init__(self, decay=0.95):
+        self.last_state = None
+        self.stuck_counter = 0
+        self.decay = decay
+
+    def compute(self, current_state, curiosity_drive):
+        """
+        Returns reward signal between -1 and 1.
+        """
+        if self.last_state is None:
+            self.last_state = current_state
+            return 0.0
+
+        # Reward 1: change from previous state (novelty)
+        delta = abs(current_state - self.last_state)
+        novelty_reward = min(delta * 2, 1.0)  # scale to [0,1]
+
+        # Reward 2: alignment with curiosity drive
+        curiosity_alignment = 1.0 - abs(curiosity_drive - delta)
+
+        # Punishment: being stuck (low delta for many steps)
+        if delta < 0.01:
+            self.stuck_counter += 1
+        else:
+            self.stuck_counter = max(0, self.stuck_counter - 1)
+
+        stagnation_penalty = min(self.stuck_counter / 10.0, 0.5)
+
+        # Combine
+        reward = (novelty_reward * 0.6 + curiosity_alignment * 0.4) - stagnation_penalty
+        reward = np.clip(reward, -1.0, 1.0)
+
+        # Update
+        self.last_state = current_state * self.decay + current_state * (1 - self.decay)
+        return reward
+```
+
+## 🔗 Integrate into `core.py`
+
+Inside `__init__`:
+```python
+from .reward import RewardSystem
+self.reward = RewardSystem()
+```
+
+Inside `step()` (after `learning` update):
+```python
+reward_signal = self.reward.compute(self.learning, curiosity_push)
+
+# Apply reward: increase learning speed if reward > 0, slow if reward < 0
+self.learning += reward_signal * 0.05
+self.learning = np.clip(self.learning, 0.0, 1.0)
+```
+
+Now the baby mind:
+
+- **Loves novelty** → seeks new baby steps
+- **Hates being stuck** → avoids repetitive loops
+- **Grows faster when curious** → reinforcement learning at the infant level
+
+---
+
+## 🧪 Bonus: Color‑Emotion now tied to reward
+
+Update `emotion.py` to map reward into emotion:
+
+```python
+def from_reward(self, reward):
+    if reward > 0.3:
+        return "joyful (yellow)"
+    elif reward < -0.3:
+        return "frustrated (gray)"
+    else:
+        return "curious (green)"
+```
+
+---
+
+## 📜 README addition
+
+```markdown
+## Phase 4: Proto‑Motivation
+
+The baby mind now has a **reward system**:
+- Novelty → pleasure
+- Stagnation → pain
+- Curiosity alignment → reinforcement
+
+This is not a goal‑driven agent. It is a *feeling‑driven* one.  
+It learns what to pay attention to, not what to achieve.
+```
+
+---
+
+## 🧭 Next after reward?
+
+We can now stack:
+
+- **Multi‑sensory fusion** (audio + color + text → unified baby “feeling”)
+- **Tiny language generator** (babbles proto‑words like “da-da” for high reward)
+- **World‑simulation sandbox** (a simple grid where the baby moves toward reward)
+
+Tell me which one you want, OMEGA. Or we can run a **live simulation** of the reward system on your 23–88 Hz neural audio stream.

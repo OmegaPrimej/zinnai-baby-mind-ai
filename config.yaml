@@ -2,36 +2,36 @@
 # All parameters can be tuned at runtime
 
 learning:
-  goal: 1000.0           # Target learning state (never truly reached)
-  learning_rate: 0.05    # Step size per iteration
+  goal: 1000.0
+  learning_rate: 0.05
 
 copilot:
   base_pi: 3.1415926535
-  entropy_init: 0.92     # Initial quantum entropy (from Azure telemetry)
-  latency_ms: 12.0       # Edge → Cloud round trip (ms)
+  entropy_init: 0.92
+  latency_ms: 12.0
 
 memory:
-  size: 32               # Number of memory slots
-  noise: 0.1             # Imprint noise (baby-like fuzziness)
+  size: 32
+  noise: 0.1
 
 curiosity:
   min: 0.1
-  max: 1.0               # Curiosity drive bounds
+  max: 1.0
 
 dream:
-  probability: 0.05      # 5% chance per step to enter dream mode
+  probability: 0.05
 
 reward:
-  decay: 0.95            # How fast past state influences reward
-  stuck_threshold: 0.01  # Delta below this triggers stagnation penalty
+  decay: 0.95
+  stuck_threshold: 0.01
 
 audio:
-  freq_low: 23           # Hz – neural audio lower bound
-  freq_high: 88          # Hz – neural audio upper bound
-  amplitude_range: [0.0, 1.0]  # red → white transition
+  freq_low: 23
+  freq_high: 88
+  amplitude_range: [0.0, 1.0]
 
 quantum:
-  bell_state_ratio: 1.0  # 1:1 = maximally entangled (512|00> + 512|11>)
+  bell_state_ratio: 1.0
 
 sensing:
   text_enabled: true
@@ -39,4 +39,4 @@ sensing:
 
 logging:
   verbose: true
-  print_interval: 10     # Print state every N iterations
+  print_interval: 10

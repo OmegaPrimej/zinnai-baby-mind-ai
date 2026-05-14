@@ -2,6 +2,91 @@
 <html>
 <head>
     <title>Zinnai Baby Mind — Live Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <meta http-equiv="refresh" content="2">
+</head>
+<body>
+    <div class="container">
+        <h1>🧠 ZINNAI BABY MIND</h1>
+        <div class="subtitle">One small step for a baby mind, one giant leap for intelligence.</div>
+        
+        <div class="grid">
+            <div class="card">
+                <div class="label">Learning Constant Λ</div>
+                <div id="lambda" class="value large-value neon-text">--</div>
+            </div>
+            
+            <div class="card">
+                <div class="label">Learning State</div>
+                <div id="learning" class="value">--</div>
+            </div>
+            
+            <div class="card">
+                <div class="label">Emotion</div>
+                <div id="emotion" class="value emotion-value">--</div>
+            </div>
+            
+            <div class="card">
+                <div class="label">Reward</div>
+                <div id="reward" class="value">--</div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="label">Inner Monologue</div>
+            <div id="monologue" class="value" style="font-size: 1.2rem;">--</div>
+        </div>
+        
+        <div class="card">
+            <div class="label">Entropy / Pilot</div>
+            <div id="entropy" class="value">--</div>
+        </div>
+        
+        <footer>
+            Zinnai Baby Mind AI — Eternal Learning Loop
+        </footer>
+    </div>
+
+    <script>
+        async function fetchState() {
+            try {
+                const res = await fetch('/api/state');
+                const data = await res.json();
+                document.getElementById('lambda').innerText = data.learning_constant.toFixed(2);
+                document.getElementById('learning').innerText = data.learning.toFixed(4);
+                
+                const emotionElem = document.getElementById('emotion');
+                emotionElem.innerHTML = data.emotion;
+                // Apply dynamic class for color coding
+                emotionElem.className = 'value emotion-value';
+                if (data.emotion.includes('joyful')) emotionElem.classList.add('emotion-joyful');
+                else if (data.emotion.includes('frustrated')) emotionElem.classList.add('emotion-frustrated');
+                else emotionElem.classList.add('emotion-curious');
+                
+                document.getElementById('reward').innerHTML = data.reward.toFixed(3);
+                document.getElementById('monologue').innerHTML = data.inner_monologue;
+                document.getElementById('entropy').innerHTML = `entropy: ${data.entropy.toFixed(3)} | pilot: ${data.pilot.toFixed(3)}`;
+                
+                if (data.evolved) {
+                    document.body.classList.add('evolution-flash');
+                    setTimeout(() => document.body.classList.remove('evolution-flash'), 800);
+                }
+            } catch(e) { console.error(e); }
+        }
+        fetchState();
+        setInterval(fetchState, 2000);
+    </script>
+</body>
+</html>
+
+
+
+
+"""
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Zinnai Baby Mind — Live Dashboard</title>
     <meta http-equiv="refresh" content="2">
     <style>
         body { font-family: monospace; background: #0a0a0a; color: #0f0; padding: 20px; }
@@ -70,3 +155,4 @@
     </script>
 </body>
 </html>
+"""

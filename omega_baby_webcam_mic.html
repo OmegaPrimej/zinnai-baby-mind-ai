@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Ω OMEGA USNI – BABY LISTENS & SEES</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+        body {
+            background: black;
+            color: #0f0;
+            font-family: 'Courier New', monospace;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        #canvas-container {
+            background: #000;
+            border: 2px solid #0f0;
+            box-shadow: 0 0 20px rgba(0,255,0,0.3);
+            margin: 20px;
+            display: inline-block;
+        }
+        pre {
+            margin: 0;
+            line-height: 1.2;
+            font-size: 10px;
+            letter-spacing: 0;
+        }
+        .controls {
+            background: #111;
+            padding: 15px;
+            border-radius: 12px;
+            margin: 10px;
+            width: 90%;
+            max-width: 600px;
+            text-align: center;
+            border: 1px solid #0f0;
+        }
+        button {
+            background: #0f0;
+            color: black;
+            border: none;
+            padding: 8px 16px;
+            margin: 5px;
+            font-family: monospace;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 20px;
+        }
+        button:hover {
+            background: #0a0;
+            transform: scale(1.02);
+        }
+        .status {
+            font-size: 12px;
+            background: #000000aa;
+            padding: 6px 12px;
+            border-radius: 20px;
+            display: inline-block;
+            margin-top: 8px;
+        }
+        .flex-row {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+        }
+        .card {
+            background: #111;
+            border-left: 4px solid #0f0;
+            padding: 8px 15px;
+            margin: 5px;
+            font-size: 12px;
+        }
+        h3 {
+            margin: 0 0 5px;
+            color: #ff44cc;
+        }
+        footer {
+            margin-top: 20px;
+            font-size: 10px;
+            opacity: 0.6;
+        }
+    </style>
+</head>
+<body>
+<div style="text-align: center;">
+    <h1>🧠 ZINNAI BABY · AUDIO‑VISUAL RNN</h1>
+    <p><i>listens to low frequencies (23‑88Hz) + watches webcam → evolves ASCII dreams</i></p>
+</div>
+
+<div class="flex-row">
+    <div id="canvas-container"></div>
+    <div class="controls">
+        <div>
+            <button id="btn-start">🎤 START CAM + MIC</button>
+            <button id="btn-reset-rnn">🔄 RESET RNN</button>
+        </div>
+        <div class="status" id="status-text">⚡ waiting for permissions</div>
+        <div class="card">
+            <h3>🎵 AUDIO FEATURE (23‑88Hz)</h3>
+            <div id="audio-value">—</div>
+            <progress id="audio-progress" value="0" max="1" style="width:100%"></progress>
+        </div>
+        <div class="card">
+            <h3>🧬 RNN PREDICTION ERROR</h3>
+            <div id="loss-value">—</div>
+        </div>
+        <div class="card">
+            <h3>🧸 BABY LEARNING CONSTANT Λ</h3>
+            <div id="lambda-value">—</div>
+        </div>
+    </div>
+</div>
+<footer>
+    🎙️ Low‑frequency energy (23‑88Hz) drives novelty → RNN learns to predict pixels based on sound & vision.<br>
+    The baby feels "reward" when sound changes unpredictably.
+</footer>
+
+<script>
+    // ===================== CONFIG =====================
+    const COLS = 80;
+    const ROWS = 40;
+    const DENSITY = " .:-=+*#%#@%#@";
+    
+    // RNN hyperparameters
+    const HIDDEN_SIZE = 24;
+    const LEARNING_RATE = 0.08;
+    const SEQ_LEN = 32;          // number of pixels before weight update
+    let rnnWxh = [], rnnWhh = [], rnnWhy = [];
+    let rnnBh = new Array(HIDDEN_SIZE).fill(0);
+    let rnnBy = 0;
+    let hPrev = new Array(HIDDEN_SIZE).fill(0);
+    
+    // Audio state
+    let audioContext = null;
+    let source = null;
+    let analyser = null;
+    let mediaStream = null;
+    let lowFreqEnergy = 0.5;     // 0..1 (normalized)
+    let lowFreqHistory = [];
+    
+    // Video state
+    let videoElement = null;
+    let videoCanvas = null;
+    let videoCtx = null;
+    let videoActive = false;
+    
+    // Learning metrics
+    let babyLearning = 0.5;       // 0..1
+    let babyLambda = 0;
+    let babyReward = 0;
+    let lastPredictionError = 0;
+    
+    // Frame counter
+    let frame = 0;
+    let animationId = null;
+    let rnnReady = false;
+    
+    // ========== RNN helper functions ==========
+    function sigmoid(x) { return 1 / (1 + Math.exp(-x)); }
+    function dsigmoid(y) { return y * (1 - y); }
+    
+    function initRNN() {
+        // random small weights
+        rnnWxh = Array(HIDDEN_SIZE).fill().map(() => [(Math.random() - 0.5) * 0.1]);
+        rnnWhh = Array(HIDDEN_SIZE).fill().map(() => Array(HIDDEN_SIZE).fill().map(() => (Math.random() - 0.5) * 0.1));
+        rnnWhy = Array(1).fill().map(() => Array(HIDDEN_SIZE).fill().map(() => (Math.random() - 0.5) * 0.1));
+        rnnBh.fill(0);
+        rnnBy = 0;
+        hPrev.fill(0);
+        rnnReady = true;
+        updateStatus("RNN reset");
+    }
+    
+    function rnnStep(input, target = null) {
+        // input: single number (pixel brightness 0..1)
+        let hNew = new Array(HIDDEN_SIZE);
+        for (let i = 0; i < HIDDEN_SIZE; i++) {
+            let sum = rnnBh[i];
+            sum += rnnWxh[i][0] * input;
+            for (let j = 0; j < HIDDEN_SIZE; j++) {
+                sum += rnnWhh[i][j] * hPrev[j];
+            }
+            hNew[i] = sigmoid(sum);
+        }
+        let yPred = rnnBy;
+        for (let j = 0; j < HIDDEN_SIZE; j++) {
+            yPred += rnnWhy[0][j] * hNew[j];
+        }
+        yPred = sigmoid(yPred);
+        
+        if (target !== undefined) {
+            let error = target - yPred;
+            let dY = error * dsigmoid(yPred);
+            // update output weights
+            for (let j = 0; j < HIDDEN_SIZE; j++) {
+                rnnWhy[0][j] += LEARNING_RATE * dY * hNew[j];
+            }
+            rnnBy += LEARNING_RATE * dY;
+            // backprop to hidden
+            let dh = new Array(HIDDEN_SIZE);
+            for (let i = 0; i < HIDDEN_SIZE; i++) {
+                let sum = 0;
+                for (let k = 0; k < 1; k++) sum += rnnWhy[0][i] * dY;
+                dh[i] = sum * dsigmoid(hNew[i]);
+            }
+            for (let i = 0; i < HIDDEN_SIZE; i++) {
+                rnnBh[i] += LEARNING_RATE * dh[i];
+                rnnWxh[i][0] += LEARNING_RATE * dh[i] * input;
+                for (let j = 0; j < HIDDEN_SIZE; j++) {
+                    rnnWhh[i][j] += LEARNING_RATE * dh[i] * hPrev[j];
+                }
+            }
+            lastPredictionError = Math.abs(error);
+        }
+        hPrev = hNew;
+        return yPred;
+    }
+    
+    function resetRNN() {
+        hPrev.fill(0);
+    }
+    
+    // ========== Audio setup (focus on 23‑88 Hz) ==========
+    async function initAudio() {
+        if (audioContext && audioContext.state !== 'closed') {
+            await audioContext.close();
+        }
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 256;
+        const bufferLength = analyser.frequencyBinCount; // 128
+        const dataArray = new Uint8Array(bufferLength);
+        
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            source = audioContext.createMediaStreamSource(stream);
+            source.connect(analyser);
+            await audioContext.resume();
+            updateStatus("🎙️ Microphone active – extracting 23‑88Hz energy");
+            
+            function updateLowFreq() {
+                if (!analyser) return;
+                analyser.getByteFrequencyData(dataArray);
+                // map frequency bins: sampleRate = 44.1kHz, fftSize=256 → bin width = 44100/256 ≈ 172Hz
+                // 23Hz ~ bin 0, 88Hz ~ bin 1 (since 172Hz per bin, low bins overlap)
+                // We'll take weighted average of first 4 bins (0-3) to cover ~0-688Hz, but focus on lower part.
+                let lowSum = 0;
+                let binsToUse = Math.min(4, bufferLength);
+                for (let i = 0; i < binsToUse; i++) {
+                    lowSum += dataArray[i];
+                }
+                let raw = lowSum / (binsToUse * 255); // normalize 0..1
+                // smooth
+                lowFreqHistory.push(raw);
+                if (lowFreqHistory.length > 10) lowFreqHistory.shift();
+                let avg = lowFreqHistory.reduce((a,b)=>a+b,0)/lowFreqHistory.length;
+                lowFreqEnergy = Math.min(1, Math.max(0, avg * 1.2));
+                document.getElementById('audio-value').innerText = lowFreqEnergy.toFixed(3);
+                document.getElementById('audio-progress').value = lowFreqEnergy;
+                requestAnimationFrame(updateLowFreq);
+            }
+            updateLowFreq();
+        } catch (err) {
+            console.error("Microphone error", err);
+            updateStatus("❌ No mic permission – using random audio simulation");
+            // fake audio: random walk
+            setInterval(() => {
+                lowFreqEnergy += (Math.random() - 0.5) * 0.1;
+                lowFreqEnergy = Math.min(1, Math.max(0, lowFreqEnergy));
+                document.getElementById('audio-value').innerText = lowFreqEnergy.toFixed(3);
+                document.getElementById('audio-progress').value = lowFreqEnergy;
+            }, 200);
+        }
+    }
+    
+    // ========== Webcam capture ==========
+    async function initVideo() {
+        if (videoElement) {
+            videoElement.pause?.();
+            videoElement.srcObject = null;
+        }
+        videoElement = document.createElement('video');
+        videoElement.autoplay = true;
+        videoElement.muted = true;
+        videoElement.playsInline = true;
+        videoElement.style.display = 'none';
+        document.body.appendChild(videoElement);
+        
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+            videoElement.srcObject = stream;
+            await videoElement.play();
+            videoActive = true;
+            // create hidden canvas to read pixels
+            videoCanvas = document.createElement('canvas');
+            videoCtx = videoCanvas.getContext('2d');
+            updateStatus("📷 Webcam online");
+        } catch (err) {
+            console.warn("Webcam error", err);
+            videoActive = false;
+            updateStatus("📷 Webcam not available – using noise");
+        }
+    }
+    
+    // ========== Baby learning logic (Zinnai style) ==========
+    let lastLearningState = 0.5;
+    let stuckCounter = 0;
+    function computeBabyReward(currentLearning) {
+        let delta = Math.abs(currentLearning - lastLearningState);
+        let novelty = Math.min(delta * 2, 1.0);
+        // curiosity alignment: we treat audio energy as curiosity drive
+        let curiosity = lowFreqEnergy;
+        let align = 1.0 - Math.abs(curiosity - delta);
+        // stagnation
+        if (delta < 0.01) stuckCounter++;
+        else stuckCounter = Math.max(0, stuckCounter-1);
+        let penalty = Math.min(stuckCounter / 10.0, 0.5);
+        let reward = (novelty * 0.6 + align * 0.4) - penalty;
+        reward = Math.min(1, Math.max(-1, reward));
+        lastLearningState = currentLearning;
+        return reward;
+    }
+    
+    // ========== ASCII render loop ==========
+    function createAsciiFrame() {
+        if (!videoActive && !lowFreqEnergy) {
+            // fallback
+            let pre = document.querySelector('#canvas-container pre');
+            if (!pre) return;
+            let output = '';
+            for (let i=0; i<ROWS; i++) {
+                for (let j=0; j<COLS; j++) {
+                    let idx = (i*COLS + j) % DENSITY.length;
+                    output += DENSITY[idx];
+                }
+                output += '\n';
+            }
+            pre.innerText = output;
+            return;
+        }
+        
+        // Capture video frame
+        if (videoActive && videoElement && videoElement.videoWidth>0) {
+            videoCanvas.width = COLS;
+            videoCanvas.height = ROWS;
+            videoCtx.drawImage(videoElement, 0, 0, COLS, ROWS);
+            let imgData = videoCtx.getImageData(0, 0, COLS, ROWS);
+            let pixels = imgData.data;
+            
+            // For each pixel, compute brightness and optionally train RNN
+            let brightnessSeq = [];
+            for (let i=0; i<COLS*ROWS; i++) {
+                let r = pixels[i*4];
+                let g = pixels[i*4+1];
+                let b = pixels[i*4+2];
+                let bright = (r+g+b)/(3*255);
+                brightnessSeq.push(bright);
+            }
+            
+            // Use audio energy to modify learning: audio low freq influences the "baby step"
+            let audioInfluence = lowFreqEnergy * 0.8 + 0.2;
+            
+            // Train RNN on a random subsequence each frame
+            if (brightnessSeq.length > SEQ_LEN && rnnReady) {
+                let startIdx = Math.floor(Math.random() * (brightnessSeq.length - SEQ_LEN));
+                resetRNN();
+                for (let t = 0; t < SEQ_LEN-1; t++) {
+                    let inp = brightnessSeq[startIdx + t];
+                    let targ = brightnessSeq[startIdx + t + 1];
+                    // modulate target by audio (simulate "baby hears and expects different future")
+                    let modifiedTarget = targ * (1 - audioInfluence) + (lowFreqEnergy) * audioInfluence;
+                    rnnStep(inp, modifiedTarget);
+                }
+            }
+            
+            // Generate ASCII with RNN prediction (or fallback)
+            let outputLines = [];
+            resetRNN();
+            let pixelIndex = 0;
+            for (let y=0; y<ROWS; y++) {
+                let line = '';
+                for (let x=0; x<COLS; x++) {
+                    let origBright = brightnessSeq[pixelIndex];
+                    let predicted = origBright;
+                    if (rnnReady) {
+                        predicted = rnnStep(origBright);  // predict next brightness
+                    }
+                    // mix original and predicted based on audio energy (baby's attention)
+                    let mixed = origBright * (1 - audioInfluence) + predicted * audioInfluence;
+                    let charIdx = Math.floor(mixed * (DENSITY.length-1));
+                    charIdx = Math.min(charIdx, DENSITY.length-1);
+                    line += DENSITY[charIdx];
+                    pixelIndex++;
+                }
+                outputLines.push(line);
+            }
+            let asciiOutput = outputLines.join('\n');
+            let pre = document.querySelector('#canvas-container pre');
+            if (pre) pre.innerText = asciiOutput;
+            
+            // Update baby learning state: learning increases with audio novelty
+            let audioDelta = Math.abs(lowFreqEnergy - (lowFreqHistory[lowFreqHistory.length-2] || lowFreqEnergy));
+            babyLearning += audioDelta * 0.05;
+            if (babyLearning > 0.9) babyLearning *= 0.6;   // BabyLock
+            babyLearning = Math.min(1, Math.max(0, babyLearning));
+            
+            let reward = computeBabyReward(babyLearning);
+            babyReward = reward;
+            // Learning Constant Λ : sum(baby steps * π) / pilot (simplified)
+            let sumSteps = brightnessSeq.reduce((a,b)=>a+b,0) / brightnessSeq.length;
+            let pilot = 3.14 / (lowFreqEnergy + 0.1);
+            babyLambda = (sumSteps * 3.14) / pilot;
+            document.getElementById('lambda-value').innerHTML = babyLambda.toFixed(1);
+            document.getElementById('loss-value').innerHTML = lastPredictionError.toFixed(4);
+        } else {
+            // No video: random ASCII with audio influence
+            let pre = document.querySelector('#canvas-container pre');
+            if (pre) {
+                let output = '';
+                for (let i=0; i<ROWS; i++) {
+                    for (let j=0; j<COLS; j++) {
+                        let noise = (Math.sin(i*0.2 + frame*0.05) * 0.5 + 0.5) * lowFreqEnergy;
+                        let idx = Math.floor(noise * (DENSITY.length-1));
+                        output += DENSITY[idx];
+                    }
+                    output += '\n';
+                }
+                pre.innerText = output;
+            }
+        }
+        frame++;
+        animationId = requestAnimationFrame(createAsciiFrame);
+    }
+    
+    // ========== UI helpers ==========
+    function updateStatus(msg) {
+        let el = document.getElementById('status-text');
+        if (el) el.innerText = msg;
+        console.log(msg);
+    }
+    
+    function startAll() {
+        if (animationId) cancelAnimationFrame(animationId);
+        initAudio();
+        initVideo().then(() => {
+            // setup canvas container
+            let container = document.getElementById('canvas-container');
+            container.innerHTML = '<pre style="font-size: 10px; line-height: 1.2;"></pre>';
+            createAsciiFrame();
+        }).catch(e => {
+            console.error(e);
+            updateStatus("⚠️ No camera, but audio may work");
+            createAsciiFrame();
+        });
+    }
+    
+    // Event bindings
+    window.onload = () => {
+        initRNN();
+        document.getElementById('btn-start').onclick = startAll;
+        document.getElementById('btn-reset-rnn').onclick = () => { initRNN(); updateStatus("RNN reset"); };
+        updateStatus("Click START to allow camera+mic");
+        // placeholder pre
+        let container = document.getElementById('canvas-container');
+        container.innerHTML = '<pre style="font-size: 10px; line-height: 1.2;">⚡ waiting for permission...</pre>';
+    };
+</script>
+</body>
+</html>
